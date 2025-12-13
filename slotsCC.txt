@@ -4,16 +4,16 @@ local speaker = peripheral.find("speaker")
 local chest = peripheral.find("minecraft:chest") or peripheral.find("chest") or peripheral.find("barrel")
 
 if not mon then error("No Monitor attached! Please connect a Monitor.") end
-mon.setTextScale(0.5) -- Adjust text scale to fit 51x26 if needed. 0.5 usually gives good resolution.
+mon.setTextScale(0.5)
 local mW, mH = mon.getSize()
 
 -- --- CONFIGURATION --- --
 local ASSET_FILE = "symbols.nfp"
-local BET_COST = 10 -- Credits per spin
+local BET_COST = 10 
 local CREDIT_ITEM = "minecraft:emerald"
 local CREDITS_PER_ITEM = 10
 
--- Define Symbols (Required for asset generation)
+-- [IMPORTANT] Define SYMBOLS first so functions can see it
 local SYMBOLS = {
     { name = "Cherry",  color = colors.red },
     { name = "Lemon",   color = colors.yellow },
@@ -26,16 +26,13 @@ local SYMBOLS = {
 }
 
 -- Reel Positions (x coords) and Window (y coords)
--- INCREASED SIZE: 10 wide, 8 high
-local SYMBOL_H = 8    -- Height of one symbol in pixels (Increased from 6)
-local SYMBOL_W = 10   -- Width of one symbol (Increased from 8)
--- Adjusted reel positions for wider symbols (Spacing of 2 pixels)
+local SYMBOL_H = 8    -- Height of one symbol
+local SYMBOL_W = 10   -- Width of one symbol
 local REEL_X = {3, 15, 27, 39, 51} 
 
 local VISIBLE_ROWS = 3
-local WIN_HEIGHT = VISIBLE_ROWS * SYMBOL_H -- 24 pixels (Total window height)
-local WIN_Y_START = math.floor((mH - WIN_HEIGHT) / 2) -- Centered vertically
--- Ensure we don't overlap the header (row 1-2) if screen is tight
+local WIN_HEIGHT = VISIBLE_ROWS * SYMBOL_H 
+local WIN_Y_START = math.floor((mH - WIN_HEIGHT) / 2) 
 if WIN_Y_START < 3 then WIN_Y_START = 3 end
 
 -- Payline Offsets (Relative to center row: 0)
@@ -43,6 +40,8 @@ if WIN_Y_START < 3 then WIN_Y_START = 3 end
 local function createDefaultAssets()
     local img = {}
     -- Create blank lines for all symbols
+    if not SYMBOLS then error("SYMBOLS table is missing!") end
+    
     for i=1, #SYMBOLS * SYMBOL_H do
         -- 4 frames of animation side-by-side
         table.insert(img, string.rep("f", SYMBOL_W * 4)) -- Fill with background (f=black usually)
@@ -86,7 +85,7 @@ local function loadAssets()
     if spriteSheet[1] and #spriteSheet[1] ~= expectedWidth then invalid = true end
     
     if invalid then
-        print("RESIZING ART...") -- Safe fallback print
+        print("RESIZING ART...")
         if fs.exists(ASSET_FILE) then fs.delete(ASSET_FILE) end
         createDefaultAssets()
         spriteSheet = paintutils.loadImage(ASSET_FILE)
