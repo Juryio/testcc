@@ -2,8 +2,17 @@
   ╔════════════════════════════════════════════════════════════════════════════╗
   ║          BIGGER BASS BONANZA - ComputerCraft Slot Machine                 ║
   ║                     Pragmatic Play Edition                                 ║
+  ║                  Mit paintutils für Custom Symbole                         ║
   ║                                                                            ║
-  ║  FIXED VERSION: Compatible with Lua 5.1 (No // operator)                   ║
+  ║  - 5x4 Raster mit 12 Paylines                                              ║
+  ║  - RTP 96,71% | Volatilität: Sehr Hoch (5/5)                              ║
+  ║  - Geld-Symbole (Fische) mit Multiplikatoren                              ║
+  ║  - Freispiel-Feature mit Angler-Sammel-Mechanik                           ║
+  ║  - Progressive Retrigger mit Multiplikator-Erhöhung (x2, x3, x10)         ║
+  ║  - Goldener Fisch (4000x - Max Win)                                        ║
+  ║  - Custom Symbole mit paintutils                                           ║
+  ║                                                                            ║
+  ║  Kompatibilität: 3x3 oder 3x4 Monitor                                     ║
   ╚════════════════════════════════════════════════════════════════════════════╝
 ]]
 
@@ -19,19 +28,6 @@ local CONFIG = {
   volatility = 5,
   max_win = 4000,
   
-  -- Symbole
-  symbols = {
-    boot = "🚤",
-    rute = "🎣",
-    koder = "🪱",
-    koffer = "📦",
-    fisch = "🐟",
-    geldfish = "💰",
-    angler = "🎩",
-    scatter = "⭐",
-    card = "🂡",
-  },
-  
   -- Paytable (Boot zahlt ab 2, Rest ab 3)
   paytable = {
     boot = { [2] = 100, [3] = 150, [4] = 300, [5] = 500 },
@@ -42,14 +38,91 @@ local CONFIG = {
     card = { [3] = 10, [4] = 20, [5] = 50 },
   },
   
-  -- Freispiel-Multiplikatoren für Geldwerte
-  multipliers = {
-    [0] = 1,    -- Kein Retrigger
-    [4] = 2,    -- 1. Retrigger
-    [8] = 3,    -- 2. Retrigger
-    [12] = 10,  -- 3. Retrigger
-  },
+  symbol_width = 4,
+  symbol_height = 3,
 }
+
+-- ============================================================================
+-- SYMBOL DEFINITIONEN MIT PAINTUTILS
+-- ============================================================================
+
+local SYMBOLS = {}
+
+-- Boot (B)
+SYMBOLS.boot = {
+  {colors.white, colors.white, colors.white, colors.white},
+  {colors.cyan, colors.cyan, colors.cyan, colors.cyan},
+  {colors.blue, colors.blue, colors.blue, colors.blue},
+}
+
+-- Angelrute (R)
+SYMBOLS.rute = {
+  {colors.orange, colors.white, colors.white, colors.white},
+  {colors.orange, colors.orange, colors.white, colors.white},
+  {colors.white, colors.orange, colors.orange, colors.orange},
+}
+
+-- Köder (K)
+SYMBOLS.koder = {
+  {colors.white, colors.yellow, colors.yellow, colors.white},
+  {colors.yellow, colors.yellow, colors.yellow, colors.yellow},
+  {colors.white, colors.yellow, colors.yellow, colors.white},
+}
+
+-- Koffer (O)
+SYMBOLS.koffer = {
+  {colors.brown, colors.brown, colors.brown, colors.brown},
+  {colors.brown, colors.gray, colors.gray, colors.brown},
+  {colors.brown, colors.brown, colors.brown, colors.brown},
+}
+
+-- Fisch (F) - Regulär
+SYMBOLS.fisch = {
+  {colors.white, colors.red, colors.red, colors.white},
+  {colors.red, colors.red, colors.red, colors.red},
+  {colors.white, colors.red, colors.red, colors.white},
+}
+
+-- Geldfish ($) - Grün
+SYMBOLS.geldfish = {
+  {colors.white, colors.lime, colors.lime, colors.white},
+  {colors.lime, colors.lime, colors.lime, colors.lime},
+  {colors.white, colors.lime, colors.lime, colors.white},
+}
+
+-- Angler (A) - Gold
+SYMBOLS.angler = {
+  {colors.orange, colors.yellow, colors.yellow, colors.orange},
+  {colors.yellow, colors.yellow, colors.yellow, colors.yellow},
+  {colors.orange, colors.yellow, colors.yellow, colors.orange},
+}
+
+-- Scatter (*) - Magenta
+SYMBOLS.scatter = {
+  {colors.magenta, colors.white, colors.white, colors.magenta},
+  {colors.white, colors.magenta, colors.magenta, colors.white},
+  {colors.magenta, colors.white, colors.white, colors.magenta},
+}
+
+-- Karte (C) - Blau
+SYMBOLS.card = {
+  {colors.blue, colors.blue, colors.blue, colors.blue},
+  {colors.blue, colors.white, colors.white, colors.blue},
+  {colors.blue, colors.blue, colors.blue, colors.blue},
+}
+
+local function draw_symbol(x, y, symbol_type)
+  if not SYMBOLS[symbol_type] then return end
+  
+  local symbol_data = SYMBOLS[symbol_type]
+  for row = 1, CONFIG.symbol_height do
+    for col = 1, CONFIG.symbol_width do
+      term.setCursorPos(x + col - 1, y + row - 1)
+      term.setBackgroundColor(symbol_data[row][col])
+      term.write(" ")
+    end
+  end
+end
 
 -- ============================================================================
 -- MONITORE & DISPLAY
@@ -59,7 +132,6 @@ local MONITOR_WIDTH, MONITOR_HEIGHT = 0, 0
 local monitor = nil
 
 local function detect_monitor()
-  -- Versuche Monitor zu finden (3x3 oder 3x4)
   for _, name in ipairs(peripheral.getNames()) do
     if string.find(name, "monitor") then
       monitor = peripheral.wrap(name)
@@ -94,21 +166,33 @@ local function draw_border()
   monitor.setTextColor(colors.cyan)
   monitor.setBackgroundColor(colors.black)
   
-  -- Top & Bottom Border
   monitor.setCursorPos(1, 1)
-  monitor.write("╔" .. string.rep("═", MONITOR_WIDTH - 2) .. "╗")
+  monitor.write(string.char(201) .. string.rep(string.char(205), MONITOR_WIDTH - 2) .. string.char(187))
   monitor.setCursorPos(1, MONITOR_HEIGHT)
-  monitor.write("╚" .. string.rep("═", MONITOR_WIDTH - 2) .. "╝")
+  monitor.write(string.char(200) .. string.rep(string.char(205), MONITOR_WIDTH - 2) .. string.char(188))
   
-  -- Left & Right Border
   for y = 2, MONITOR_HEIGHT - 1 do
     monitor.setCursorPos(1, y)
-    monitor.write("║")
+    monitor.write(string.char(186))
     monitor.setCursorPos(MONITOR_WIDTH, y)
-    monitor.write("║")
+    monitor.write(string.char(186))
   end
   
   monitor.setTextColor(colors.white)
+end
+
+local function draw_symbol_on_monitor(x, y, symbol_type)
+  if not SYMBOLS[symbol_type] then return end
+  
+  local symbol_data = SYMBOLS[symbol_type]
+  for row = 1, CONFIG.symbol_height do
+    for col = 1, CONFIG.symbol_width do
+      monitor.setCursorPos(x + col - 1, y + row - 1)
+      monitor.setBackgroundColor(symbol_data[row][col])
+      monitor.write(" ")
+    end
+  end
+  monitor.setBackgroundColor(colors.black)
 end
 
 -- ============================================================================
@@ -146,12 +230,10 @@ local function random_symbol()
 end
 
 local function random_gold_fish()
-  -- 0.5% Chance auf Goldenen Fisch
   if math.random(1, 200) == 1 then
     return 4000
   end
   
-  -- Normale Geldwerte
   local values = {2, 2, 2, 5, 5, 5, 10, 10, 15, 20, 25, 50}
   return values[math.random(1, #values)]
 end
@@ -160,7 +242,6 @@ local function spin_reels()
   GameState.is_spinning = true
   GameState.last_win = 0
   
-  -- Visuelle Animation
   for spin_count = 1, 15 do
     for reel = 1, 5 do
       for row = 1, 4 do
@@ -175,7 +256,6 @@ local function spin_reels()
 end
 
 local function check_scatter_wins()
-  -- Zähle Scatters
   local scatter_count = 0
   for reel = 1, 5 do
     for row = 1, 4 do
@@ -185,7 +265,6 @@ local function check_scatter_wins()
     end
   end
   
-  -- Freispiele auslösen
   if scatter_count >= 3 then
     local free_spins = 0
     if scatter_count == 3 then
@@ -209,18 +288,9 @@ end
 
 local function check_payline_wins()
   local paylines = {
-    {1, 2, 3, 4, 5}, -- Row 1
-    {2, 2, 2, 2, 2}, -- Row 2
-    {3, 3, 3, 3, 3}, -- Row 3
-    {4, 4, 4, 4, 4}, -- Row 4
-    {1, 1, 2, 3, 4}, -- Diagonal
-    {4, 4, 3, 2, 1}, -- Diagonal reverse
-    {1, 2, 2, 2, 1}, -- V shape
-    {4, 3, 3, 3, 4}, -- A shape
-    {2, 1, 3, 4, 3}, -- Mountain
-    {3, 4, 2, 1, 2}, -- Valley
-    {1, 2, 1, 2, 1}, -- Zigzag
-    {4, 3, 4, 3, 4}, -- Zigzag reverse
+    {1, 2, 3, 4, 5}, {2, 2, 2, 2, 2}, {3, 3, 3, 3, 3}, {4, 4, 4, 4, 4},
+    {1, 1, 2, 3, 4}, {4, 4, 3, 2, 1}, {1, 2, 2, 2, 1}, {4, 3, 3, 3, 4},
+    {2, 1, 3, 4, 3}, {3, 4, 2, 1, 2}, {1, 2, 1, 2, 1}, {4, 3, 4, 3, 4},
   }
   
   local total_win = 0
@@ -232,7 +302,6 @@ local function check_payline_wins()
       table.insert(line_symbols, GameState.reels[col][row])
     end
     
-    -- Prüfe auf Matches
     local first = line_symbols[1]
     local match_count = 1
     
@@ -244,9 +313,7 @@ local function check_payline_wins()
       end
     end
     
-    -- Berechne Gewinn
     if match_count >= 3 or (first == "boot" and match_count >= 2) then
-      -- Spezial: Geldfish mit 5 Matches
       if first == "geldfish" and match_count == 5 then
         local money_value = 0
         for col = 1, 5 do
@@ -254,7 +321,6 @@ local function check_payline_wins()
         end
         total_win = total_win + money_value * GameState.current_multiplier
       else
-        -- Normale Paytable
         if CONFIG.paytable[first] and CONFIG.paytable[first][match_count] then
           total_win = total_win + CONFIG.paytable[first][match_count] * GameState.current_bet
         end
@@ -266,7 +332,6 @@ local function check_payline_wins()
 end
 
 local function free_spin_with_angler()
-  -- Ersetzt Random mit Angler Chance
   for reel = 1, 5 do
     for row = 1, 4 do
       if math.random(1, 4) == 1 then
@@ -277,7 +342,6 @@ local function free_spin_with_angler()
     end
   end
   
-  -- Sammle Geldwerte mit Angler
   local collected = 0
   for reel = 1, 5 do
     for row = 1, 4 do
@@ -297,7 +361,6 @@ local function free_spin_with_angler()
     end
   end
   
-  -- Zähle gesammelte Wilds für Retrigger
   local wilds_this_spin = 0
   for reel = 1, 5 do
     for row = 1, 4 do
@@ -309,7 +372,6 @@ local function free_spin_with_angler()
   
   GameState.free_spins_wilds_collected = GameState.free_spins_wilds_collected + wilds_this_spin
   
-  -- Prüfe Retrigger
   if GameState.free_spins_wilds_collected >= 4 and GameState.free_spins_wilds_collected < 8 then
     GameState.current_multiplier = 2
     GameState.free_spins_remaining = GameState.free_spins_remaining + 10
@@ -321,7 +383,6 @@ local function free_spin_with_angler()
     GameState.free_spins_remaining = GameState.free_spins_remaining + 10
   end
   
-  -- Goldener Fisch endet die Runde
   for reel = 1, 5 do
     for row = 1, 4 do
       if GameState.reels[reel][row] == "geldfish" and random_gold_fish() == 4000 then
@@ -344,42 +405,37 @@ local function draw_reels()
   clear_screen()
   draw_border()
   
-  -- Title (FIXED: math.floor statt //)
-  print_at(math.floor(MONITOR_WIDTH / 2) - 15, 2, "🎰 BIGGER BASS BONANZA 🎰", colors.yellow, colors.black)
+  -- Title
+  print_at(math.floor(MONITOR_WIDTH / 2) - 9, 2, "BIGGER BASS BONANZA", colors.yellow)
   
-  -- Reel Display (5x4)
+  -- Reel Display mit Symbol-Grafiken (5 Walzen, 4 Reihen)
   local start_x = 3
   local start_y = 4
+  local reel_spacing = 5
   
   for col = 1, 5 do
     for row = 1, 4 do
-      local symbol = GameState.reels[col][row] or "?"
-      local display_char = CONFIG.symbols[symbol] or "?"
-      local color = colors.white
+      local symbol = GameState.reels[col][row] or "card"
+      local x_pos = start_x + (col - 1) * reel_spacing
+      local y_pos = start_y + (row - 1) * 4
       
-      if symbol == "scatter" then color = colors.yellow end
-      if symbol == "angler" then color = colors.orange end
-      if symbol == "geldfish" then color = colors.lime end
-      
-      print_at(start_x + (col - 1) * 2, start_y + row - 1, display_char, color)
+      draw_symbol_on_monitor(x_pos, y_pos, symbol)
     end
   end
   
   -- Payline Info
-  local payline_y = 9
+  local payline_y = 17
   print_at(3, payline_y, "Paylines: 12", colors.cyan)
-  print_at(3, payline_y + 1, string.format("Bet: %.2f EUR", GameState.current_bet), colors.lime)
-  print_at(3, payline_y + 2, string.format("Win: %.2f EUR", GameState.last_win), colors.yellow)
+  print_at(3, payline_y + 1, "Bet: " .. string.format("%.2f EUR", GameState.current_bet), colors.lime)
+  print_at(3, payline_y + 2, "Win: " .. string.format("%.2f EUR", GameState.last_win), colors.yellow)
   
   -- Balance
-  print_at(MONITOR_WIDTH - 18, payline_y, string.format("Balance: %.2f EUR", GameState.balance), colors.lime)
+  print_at(MONITOR_WIDTH - 18, payline_y, "Balance: " .. string.format("%.2f EUR", GameState.balance), colors.lime)
   
   -- Free Spins Status
   if GameState.is_free_spins then
-    print_at(3, MONITOR_HEIGHT - 3, string.format("FREE SPINS: %d | Wilds: %d | Mult: x%d", 
-      GameState.free_spins_remaining, 
-      GameState.free_spins_wilds_collected,
-      GameState.current_multiplier), colors.orange)
+    local fs_text = "FS:" .. GameState.free_spins_remaining .. " W:" .. GameState.free_spins_wilds_collected .. " M:x" .. GameState.current_multiplier
+    print_at(3, MONITOR_HEIGHT - 2, fs_text, colors.orange)
   end
   
   monitor.setTextColor(colors.white)
@@ -390,20 +446,19 @@ local function show_menu()
   clear_screen()
   draw_border()
   
-  -- FIXED: math.floor statt //
-  print_at(math.floor(MONITOR_WIDTH / 2) - 10, 3, "BIGGER BASS BONANZA", colors.yellow)
+  print_at(math.floor(MONITOR_WIDTH / 2) - 9, 3, "BIGGER BASS BONANZA", colors.yellow)
   print_at(math.floor(MONITOR_WIDTH / 2) - 8, 4, "Pragmatic Play", colors.cyan)
   
   local menu_y = 7
   print_at(3, menu_y, "1) Play 1 Spin", colors.lime)
-  print_at(3, menu_y + 1, "2) Autoplay (10 Spins)", colors.lime)
+  print_at(3, menu_y + 1, "2) Autoplay (10x)", colors.lime)
   print_at(3, menu_y + 2, "3) Bet Amount", colors.lime)
   print_at(3, menu_y + 3, "4) Rules", colors.lime)
   print_at(3, menu_y + 4, "5) Exit Game", colors.red)
   
-  print_at(3, menu_y + 6, string.format("Balance: %.2f EUR", GameState.balance), colors.yellow)
-  print_at(3, menu_y + 7, string.format("Current Bet: %.2f EUR", GameState.current_bet), colors.cyan)
-  print_at(3, menu_y + 8, "RTP: 96.71% | Volatility: 5/5", colors.white)
+  print_at(3, menu_y + 6, "Balance: " .. string.format("%.2f", GameState.balance) .. " EUR", colors.yellow)
+  print_at(3, menu_y + 7, "Bet: " .. string.format("%.2f", GameState.current_bet) .. " EUR", colors.cyan)
+  print_at(3, menu_y + 8, "RTP: 96.71% | Vol: 5/5", colors.white)
   
   monitor.setTextColor(colors.white)
   monitor.setBackgroundColor(colors.black)
@@ -418,17 +473,17 @@ local function show_rules()
   local y = 4
   print_at(3, y, "5x4 Raster | 12 Paylines", colors.cyan)
   y = y + 1
-  print_at(3, y, "Max Win: 4000x Einsatz", colors.lime)
+  print_at(3, y, "Max Win: 4000x bet", colors.lime)
   y = y + 1
-  print_at(3, y, "Gold Fish: Insta-Win", colors.orange)
+  print_at(3, y, "Gold Fish: Max win instant", colors.orange)
   y = y + 1
-  print_at(3, y, "Angler: Sammelt Fische", colors.white)
+  print_at(3, y, "Angler: Collects fish values", colors.white)
   y = y + 1
-  print_at(3, y, "3+ Scatter: Freispiele", colors.yellow)
+  print_at(3, y, "3+ Scatter: Free Spins", colors.yellow)
   y = y + 1
-  print_at(3, y, "Retrigger: +10 FS, Mult x2-x10", colors.white)
+  print_at(3, y, "Retrigger: +10 FS, Mult 2x-10x", colors.white)
   
-  print_at(3, MONITOR_HEIGHT - 2, "Press SPACE to return", colors.cyan)
+  print_at(3, MONITOR_HEIGHT - 2, "Press any key to return", colors.cyan)
   
   monitor.setTextColor(colors.white)
   monitor.setBackgroundColor(colors.black)
@@ -440,7 +495,7 @@ end
 
 local function main()
   if not detect_monitor() then
-    error("Kein Monitor gefunden!")
+    error("Monitor not found!")
   end
   
   while true do
@@ -449,17 +504,15 @@ local function main()
     local event, key = os.pullEvent("key")
     
     if key == keys.one then
-      -- Single Spin
       if GameState.balance >= GameState.current_bet then
         GameState.balance = GameState.balance - GameState.current_bet
         spin_reels()
         
         if check_scatter_wins() then
           draw_reels()
-          print_at(3, MONITOR_HEIGHT - 1, "FREE SPINS TRIGGERED!", colors.orange)
+          print_at(3, MONITOR_HEIGHT - 1, "FREE SPINS!", colors.orange)
           sleep(2)
           
-          -- Freispiele Schleife
           while GameState.free_spins_remaining > 0 do
             GameState.free_spins_remaining = GameState.free_spins_remaining - 1
             spin_reels()
@@ -475,12 +528,11 @@ local function main()
           sleep(1)
         end
       else
-        print_at(3, MONITOR_HEIGHT - 1, "Insufficient Balance!", colors.red)
+        print_at(3, MONITOR_HEIGHT - 1, "No balance!", colors.red)
         sleep(2)
       end
       
     elseif key == keys.two then
-      -- Autoplay
       local spins = 10
       for i = 1, spins do
         if GameState.balance < GameState.current_bet then break end
@@ -498,12 +550,11 @@ local function main()
       end
       
     elseif key == keys.three then
-      -- Bet Change
       clear_screen()
       draw_border()
       print_at(3, 3, "Bet Amount", colors.yellow)
       print_at(3, 5, "Current: " .. GameState.current_bet, colors.cyan)
-      print_at(3, 7, "Enter new bet (0.12-240):", colors.white)
+      print_at(3, 7, "New bet:", colors.white)
       monitor.setCursorPos(3, 8)
       monitor.setTextColor(colors.lime)
       
@@ -517,20 +568,17 @@ local function main()
       sleep(1)
       
     elseif key == keys.four then
-      -- Rules
       show_rules()
       os.pullEvent("key")
       
     elseif key == keys.five then
-      -- Exit
       clear_screen()
       print_at(3, 3, "Thank you for playing!", colors.yellow)
-      print_at(3, 4, "Final Balance: " .. string.format("%.2f EUR", GameState.balance), colors.lime)
+      print_at(3, 4, "Final: " .. string.format("%.2f EUR", GameState.balance), colors.lime)
       sleep(2)
       break
     end
   end
 end
 
--- Starte das Spiel
 main()
