@@ -3,16 +3,7 @@
   ║          BIGGER BASS BONANZA - ComputerCraft Slot Machine                 ║
   ║                     Pragmatic Play Edition                                 ║
   ║                                                                            ║
-  ║  Features:                                                                 ║
-  ║  - 5x4 Raster mit 12 Paylines                                              ║
-  ║  - RTP 96,71% | Volatilität: Sehr Hoch (5/5)                              ║
-  ║  - Geld-Symbole (Fische) mit Multiplikatoren                              ║
-  ║  - Freispiel-Feature mit Angler-Sammel-Mechanik                           ║
-  ║  - Progressive Retrigger mit Multiplikator-Erhöhung (x2, x3, x10)         ║
-  ║  - Goldener Fisch (4000x - Max Win)                                        ║
-  ║  - 80er Neon-Optik & Soundeffekte (Terminal-Emulation)                    ║
-  ║                                                                            ║
-  ║  Kompatibilität: 3x3 oder 3x4 Monitor                                     ║
+  ║  FIXED VERSION: Compatible with Lua 5.1 (No // operator)                   ║
   ╚════════════════════════════════════════════════════════════════════════════╝
 ]]
 
@@ -353,8 +344,8 @@ local function draw_reels()
   clear_screen()
   draw_border()
   
-  -- Title
-  print_at(MONITOR_WIDTH // 2 - 15, 2, "🎰 BIGGER BASS BONANZA 🎰", colors.yellow, colors.black)
+  -- Title (FIXED: math.floor statt //)
+  print_at(math.floor(MONITOR_WIDTH / 2) - 15, 2, "🎰 BIGGER BASS BONANZA 🎰", colors.yellow, colors.black)
   
   -- Reel Display (5x4)
   local start_x = 3
@@ -399,8 +390,9 @@ local function show_menu()
   clear_screen()
   draw_border()
   
-  print_at(MONITOR_WIDTH // 2 - 10, 3, "BIGGER BASS BONANZA", colors.yellow)
-  print_at(MONITOR_WIDTH // 2 - 8, 4, "Pragmatic Play", colors.cyan)
+  -- FIXED: math.floor statt //
+  print_at(math.floor(MONITOR_WIDTH / 2) - 10, 3, "BIGGER BASS BONANZA", colors.yellow)
+  print_at(math.floor(MONITOR_WIDTH / 2) - 8, 4, "Pragmatic Play", colors.cyan)
   
   local menu_y = 7
   print_at(3, menu_y, "1) Play 1 Spin", colors.lime)
