@@ -20,6 +20,7 @@ local c_black = colors.black or 32768
 local c_white = colors.white or 1
 local c_red = colors.red or 16384
 local c_lime = colors.lime or 32
+local c_green = colors.green or 8192 -- Added safety for Green
 local c_yellow = colors.yellow or 16
 local c_blue = colors.blue or 2048
 local c_cyan = colors.cyan or 512
@@ -88,6 +89,7 @@ local function soundBonus() playSound("entity.player.levelup", 1.0, 0.5) end
 
 -- Helper to draw a filled rectangle
 local function drawRect(x, y, w, h, color)
+    if not x or not y then return end -- Crash prevention
     if not color then color = c_gray end -- Safety fallback
     monitor.setBackgroundColor(color)
     for i = 0, h-1 do
@@ -120,7 +122,7 @@ local function drawSymbol(x, y, symbolId)
     
     if s.name == "Cherry" then
         monitor.setCursorPos(x+2, y+2); monitor.write("  ") -- Berry
-        monitor.setBackgroundColor(colors.green)
+        monitor.setBackgroundColor(c_green) -- Safe Color
         monitor.setCursorPos(x+3, y+1); monitor.write(" ") -- Stem
     elseif s.name == "Plum" then
         monitor.setCursorPos(x+2, y+1); monitor.write("   ")
@@ -131,10 +133,10 @@ local function drawSymbol(x, y, symbolId)
         monitor.setCursorPos(x+2, y+2); monitor.write("    ")
         monitor.setCursorPos(x+3, y+3); monitor.write("  ")
     elseif s.name == "Bar" then
-        monitor.setBackgroundColor(c_black)
+        monitor.setBackgroundColor(c_black) -- Safe Color
         monitor.setCursorPos(x+1, y+1); monitor.write("      ")
         monitor.setCursorPos(x+1, y+3); monitor.write("      ")
-        monitor.setBackgroundColor(c_orange)
+        monitor.setBackgroundColor(c_orange) -- Safe Color
         monitor.setCursorPos(x+1, y+2); monitor.write(" BAR  ")
     elseif s.name == "Seven" then
         monitor.setCursorPos(x+1, y+1); monitor.write("xxxxx")
@@ -145,10 +147,10 @@ local function drawSymbol(x, y, symbolId)
         monitor.setCursorPos(x+3, y+1); monitor.write("  ")
         monitor.setCursorPos(x+2, y+2); monitor.write("    ")
         monitor.setCursorPos(x+3, y+3); monitor.write("  ")
-        monitor.setBackgroundColor(c_white); monitor.setTextColor(c_cyan)
+        monitor.setBackgroundColor(c_white); monitor.setTextColor(c_cyan) -- Safe Colors
         monitor.setCursorPos(x+3, y+2); monitor.write("**")
     elseif s.name == "SCATTER" then
-        monitor.setBackgroundColor(c_lime)
+        monitor.setBackgroundColor(c_lime) -- Safe Color
         monitor.setCursorPos(x+1, y+1); monitor.write(" $ ")
         monitor.setCursorPos(x+4, y+2); monitor.write(" $ ")
         monitor.setCursorPos(x+1, y+3); monitor.write(" $ ")
