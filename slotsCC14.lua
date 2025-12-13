@@ -1,5 +1,5 @@
--- Bigger Bass CC - Ultimate Edition (Fixed & Enhanced)
--- Optimiert fuer 3x3 Advanced Monitore
+-- Bigger Bass CC - Ultimate Edition (Sound & 4x3 Layout)
+-- Optimiert fuer 3 Breite x 4 Hoehe Advanced Monitore
 -- Autor: Gemini AI
 
 -- === KONFIGURATION ===
@@ -135,7 +135,8 @@ local WEIGHTS = {
 
 -- === SYSTEM STATUS ===
 local mon = peripheral.find("monitor")
-if not mon then error("Kein Monitor gefunden! Bitte 3x3 Advanced Monitor verbinden.") end
+local speaker = peripheral.find("speaker")
+if not mon then error("Kein Monitor gefunden!") end
 mon.setTextScale(MON_SCALE)
 local w, h = mon.getSize()
 
@@ -154,6 +155,13 @@ local gameState = {
     totalWin = 0,
     currentBet = BET_AMOUNT
 }
+
+-- === SOUND ENGINE ===
+local function playSound(name, vol, pitch)
+    if speaker then
+        speaker.playSound(name, vol or 1.0, pitch or 1.0)
+    end
+end
 
 -- === SICHERE GRAFIK FUNKTIONEN ===
 
@@ -252,7 +260,8 @@ local function getRandomSymbol(isFreeSpin)
     for k,v in pairs(WEIGHTS) do currentWeights[k] = v end
     
     if isFreeSpin then
-        currentWeights.FISHERMAN = 15
+        -- Angler Wahrscheinlichkeit reduziert (User Request: war zu hoch)
+        currentWeights.FISHERMAN = 8 
         currentWeights.SCATTER = 0
     else
         currentWeights.FISHERMAN = 1
@@ -288,12 +297,14 @@ end
 local function drawGrid()
     -- Grid Berechnung (zentriert)
     local cellW, cellH = 8, 6
-    local gapX, gapY = 1, 1
-    local gridW = (REEL_COLS * (cellW + gapX)) + 1
+    -- GapX auf 0 reduziert für 3-Monitor-Breite (42 chars bei scale 0.5)
+    -- 5 cols * 8 width = 40 chars. Passt perfekt.
+    local gapX, gapY = 0, 1 
+    local gridW = (REEL_COLS * (cellW + gapX)) + gapX -- Letzte Gap weg
     local gridH = (REEL_ROWS * (cellH + gapY)) + 1
     
     local startX = math.floor((w - gridW) / 2)
-    local startY = math.floor((h - gridH) / 2) + 2 -- Etwas tiefer wegen Header
+    local startY = math.floor((h - gridH) / 2) + 2 
     
     -- Hintergrund Rahmen
     drawRect(startX-1, startY-1, gridW+2, gridH+2, THEME.reel_frame)
@@ -304,11 +315,14 @@ local function drawGrid()
             local sym = gameState.reels[c] and gameState.reels[c][r]
             local val = gameState.values[c] and gameState.values[c][r]
             
-            local cx = startX + ((c-1) * (cellW + gapX)) + 1
+            local cx = startX + ((c-1) * (cellW + gapX))
             local cy = startY + ((r-1) * (cellH + gapY)) + 1
             
-            -- Weiße Zelle
+            -- Weiße Zelle (Mit Rahmenlinien bei gap=0 vlt besser alternierend? Nein, simpler ist besser)
+            -- Da Gap=0 zeichnen wir einfach direkt aneinander
             drawRect(cx, cy, cellW, cellH, THEME.reel_bg)
+            
+            -- Kleiner Trennstrich bei Gap=0 optional, aber wir lassen es clean
             
             if sym then
                 drawAsset(sym, cx, cy)
@@ -410,10 +424,10 @@ local function checkWin()
     
     -- 1. Gewinnlinien prüfen (Left to Right, benachbart)
     local checkedSymbols = {BOAT=true, ROD=true, BOX=true, FISH=true, A=true, K=true, Q=true, J=true, T10=true}
+    local lineWin = 0
     
     for symType, _ in pairs(checkedSymbols) do
         local maxChain = 0
-        -- Prüfe jede Startposition auf Walze 1
         local startRows = {}
         for r=1, REEL_ROWS do
             local s = gameState.reels[1][r]
@@ -421,7 +435,6 @@ local function checkWin()
         end
         
         if #startRows > 0 then
-            -- Wir haben mindestens ein Symbol auf Walze 1. Wie weit geht es?
             local chain = 1
             for c=2, REEL_COLS do
                 local found = false
@@ -440,40 +453,68 @@ local function checkWin()
         if PAYTABLE[symType] and maxChain >= 3 then
             local pay = PAYTABLE[symType][maxChain] or 0
             if pay > 0 then
-                roundWin = roundWin + (pay * gameState.currentBet)
+                lineWin = lineWin + (pay * gameState.currentBet)
             end
         end
     end
     
+    if lineWin > 0 then
+        playSound("entity.player.levelup", 1, 1.5)
+        roundWin = roundWin + lineWin
+        gameState.message = "LINE WIN: $" .. lineWin
+        drawUI()
+        os.sleep(0.5)
+    end
+    
     -- 2. Scatter Feature
     if not isFreeSpinRound and scatterCount >= FREE_SPIN_TRIGGER then
+        playSound("ui.toast.challenge_complete", 2, 1)
         local spins = 10
         if scatterCount == 4 then spins = 15 end
         if scatterCount == 5 then spins = 20 end
         gameState.freeSpins = gameState.freeSpins + spins
         gameState.message = "BONUS! " .. spins .. " FREISPIELE!"
-        os.sleep(1)
+        os.sleep(1.5)
     end
     
-    -- 3. Fisherman Collect (Nur in Freispielen)
-    if isFreeSpinRound and fishermanCount > 0 then
-        if fishTotalValue > 0 then
-            local collectWin = (fishTotalValue * fishermanCount) * gameState.multiplier
-            roundWin = roundWin + collectWin
-            gameState.message = "FISH COLLECT! +$" .. math.floor(collectWin)
+    -- 3. Fisherman Collect (Detaillierte Animation)
+    if isFreeSpinRound and fishermanCount > 0 and fishTotalValue > 0 then
+        playSound("item.bucket.fill_fish", 1, 0.8)
+        gameState.message = "ANGEL-ALARM!"
+        drawUI()
+        os.sleep(0.5)
+        
+        local collectWinTotal = 0
+        
+        -- Animation: Jeden Fisch einzeln einsammeln
+        for c=1, REEL_COLS do
+             for r=1, REEL_ROWS do
+                 if gameState.reels[c][r] == "FISH" then
+                     local val = gameState.values[c][r]
+                     -- Berechnung: Fischwert * Anzahl Angler * Multiplikator
+                     local singleFishWin = val * fishermanCount * gameState.multiplier
+                     collectWinTotal = collectWinTotal + singleFishWin
+                     
+                     -- Sound & UI Update fuer jeden Fisch
+                     playSound("entity.experience_orb.pickup", 1, 1.2 + (math.random()*0.5))
+                     gameState.message = "CATCH: +$" .. math.floor(singleFishWin)
+                     drawUI()
+                     os.sleep(0.3) -- Kurze Pause fuer Effekt
+                 end
+             end
         end
+        
+        roundWin = roundWin + collectWinTotal
         
         -- Wilds sammeln
         gameState.wildsCollected = gameState.wildsCollected + fishermanCount
         
-        -- Retrigger Check (4, 8, 12 Angler)
+        -- Retrigger Check
         local nextLevel = 4
         if gameState.multiplier == 2 then nextLevel = 8 end
         if gameState.multiplier == 3 then nextLevel = 12 end
         
         if gameState.wildsCollected >= nextLevel and gameState.multiplier < 10 then
-             -- Level Up nur wenn wir gerade die Grenze überschritten haben (Logik vereinfacht)
-             -- Wir erhöhen einfach den Multiplier basierend auf Total Count
              local oldMult = gameState.multiplier
              if gameState.wildsCollected >= 12 then gameState.multiplier = 10
              elseif gameState.wildsCollected >= 8 then gameState.multiplier = 3
@@ -481,9 +522,10 @@ local function checkWin()
              end
              
              if gameState.multiplier > oldMult then
+                 playSound("ui.toast.challenge_complete", 1, 1.2)
                  gameState.freeSpins = gameState.freeSpins + 10
                  gameState.message = "RETRIGGER! x" .. gameState.multiplier
-                 os.sleep(1)
+                 os.sleep(1.5)
              end
         end
     end
@@ -493,6 +535,7 @@ end
 
 local function spin()
     if gameState.money < gameState.currentBet and gameState.freeSpins == 0 then
+        playSound("block.note_block.bass", 1, 0.5)
         gameState.message = "NICHT GENUG GELD!"
         drawUI()
         return
@@ -500,6 +543,7 @@ local function spin()
 
     gameState.spinning = true
     gameState.message = "VIEL GLUECK..."
+    playSound("ui.button.click", 0.5, 1)
     
     if gameState.freeSpins == 0 then
         gameState.money = gameState.money - gameState.currentBet
@@ -511,14 +555,16 @@ local function spin()
     drawUI()
     
     -- Animation
-    local loops = 4
-    if gameState.freeSpins > 0 then loops = 2 end
+    local loops = 5
+    if gameState.freeSpins > 0 then loops = 3 end
     
     for i=1, loops do
+        playSound("block.note_block.hat", 0.2, 1.5) -- Klick Sound beim Drehen
         initReels(gameState.freeSpins > 0)
         drawGrid()
-        os.sleep(0.15)
+        os.sleep(0.12)
     end
+    playSound("block.stone.step", 1, 0.8) -- Stopp Sound
     
     local win = checkWin()
     gameState.money = gameState.money + win
@@ -554,6 +600,7 @@ local function spin()
         spin()
     elseif gameState.wildsCollected > 0 then
         -- Bonus Ende Reset
+        playSound("ui.toast.challenge_complete", 1, 0.5)
         gameState.message = "BONUS TOTAL: $" .. math.floor(gameState.totalWin)
         gameState.multiplier = 1
         gameState.wildsCollected = 0
@@ -571,6 +618,7 @@ local function main()
     setFg(colors.cyan)
     safePos(w/2 - 5, h/2)
     safeWrite("Lade...")
+    playSound("entity.experience_orb.pickup", 1, 0.5)
     os.sleep(1)
     
     -- Initialer State
