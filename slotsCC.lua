@@ -12,6 +12,20 @@ if not monitor then error("No Advanced Monitor found!") end
 monitor.setTextScale(0.5) -- High resolution mode
 local mWidth, mHeight = monitor.getSize()
 
+-- ### SAFE COLORS ###
+-- Handle spelling differences (Gray vs Grey) to prevent nil errors
+local c_gray = colors.gray or colors.grey or 8
+local c_lightGray = colors.lightGray or colors.lightGrey or 256
+local c_black = colors.black or 32768
+local c_white = colors.white or 1
+local c_red = colors.red or 16384
+local c_lime = colors.lime or 32
+local c_yellow = colors.yellow or 16
+local c_blue = colors.blue or 2048
+local c_cyan = colors.cyan or 512
+local c_purple = colors.purple or 1024
+local c_orange = colors.orange or 2
+
 -- ### GAME STATE ###
 local credits = 0
 local currentBet = 10
@@ -21,25 +35,25 @@ local freeSpins = 0
 
 -- ### CONFIGURATION ###
 local COLORS = {
-    BG = colors.black,
-    UI_BG = colors.gray,
-    UI_TEXT = colors.white,
-    ACCENT = colors.yellow,
-    WIN = colors.lime,
-    LOSE = colors.red,
-    REEL_BG = colors.white
+    BG = c_black,
+    UI_BG = c_gray,
+    UI_TEXT = c_white,
+    ACCENT = c_yellow,
+    WIN = c_lime,
+    LOSE = c_red,
+    REEL_BG = c_white
 }
 
 -- Symbol Definitions (ID, Color, Name, Payout Multiplier Base)
 -- Payout logic: Base * (Count - 2) * Bet
 local SYMBOLS = {
-    {id=1, color=colors.red, name="Cherry", weight=40, val=2},
-    {id=2, color=colors.purple, name="Plum", weight=35, val=3},
-    {id=3, color=colors.yellow, name="Lemon", weight=30, val=4},
-    {id=4, color=colors.orange, name="Bar", weight=20, val=8},
-    {id=5, color=colors.blue, name="Seven", weight=10, val=15},
-    {id=6, color=colors.cyan, name="Diamond", weight=5, val=30},
-    {id=7, color=colors.lime, name="SCATTER", weight=4, val=0} -- Triggers Bonus
+    {id=1, color=c_red, name="Cherry", weight=40, val=2},
+    {id=2, color=c_purple, name="Plum", weight=35, val=3},
+    {id=3, color=c_yellow, name="Lemon", weight=30, val=4},
+    {id=4, color=c_orange, name="Bar", weight=20, val=8},
+    {id=5, color=c_blue, name="Seven", weight=10, val=15},
+    {id=6, color=c_cyan, name="Diamond", weight=5, val=30},
+    {id=7, color=c_lime, name="SCATTER", weight=4, val=0} -- Triggers Bonus
 }
 
 -- 3 Rows, 5 Columns
@@ -74,6 +88,7 @@ local function soundBonus() playSound("entity.player.levelup", 1.0, 0.5) end
 
 -- Helper to draw a filled rectangle
 local function drawRect(x, y, w, h, color)
+    if not color then color = c_gray end -- Safety fallback
     monitor.setBackgroundColor(color)
     for i = 0, h-1 do
         monitor.setCursorPos(x, y + i)
@@ -83,8 +98,8 @@ end
 
 -- Helper to center text
 local function centerText(text, y, bg, fg)
-    monitor.setBackgroundColor(bg)
-    monitor.setTextColor(fg)
+    monitor.setBackgroundColor(bg or c_black)
+    monitor.setTextColor(fg or c_white)
     local x = math.floor((mWidth - #text) / 2) + 1
     monitor.setCursorPos(x, y)
     monitor.write(text)
@@ -95,7 +110,7 @@ end
 local function drawSymbol(x, y, symbolId)
     local s = SYMBOLS[symbolId]
     local c = s.color
-    local b = colors.white -- Background of reel
+    local b = c_white -- Background of reel
 
     -- Draw background box
     drawRect(x, y, 8, 5, b)
@@ -116,10 +131,10 @@ local function drawSymbol(x, y, symbolId)
         monitor.setCursorPos(x+2, y+2); monitor.write("    ")
         monitor.setCursorPos(x+3, y+3); monitor.write("  ")
     elseif s.name == "Bar" then
-        monitor.setBackgroundColor(colors.black)
+        monitor.setBackgroundColor(c_black)
         monitor.setCursorPos(x+1, y+1); monitor.write("      ")
         monitor.setCursorPos(x+1, y+3); monitor.write("      ")
-        monitor.setBackgroundColor(colors.orange)
+        monitor.setBackgroundColor(c_orange)
         monitor.setCursorPos(x+1, y+2); monitor.write(" BAR  ")
     elseif s.name == "Seven" then
         monitor.setCursorPos(x+1, y+1); monitor.write("xxxxx")
@@ -130,10 +145,10 @@ local function drawSymbol(x, y, symbolId)
         monitor.setCursorPos(x+3, y+1); monitor.write("  ")
         monitor.setCursorPos(x+2, y+2); monitor.write("    ")
         monitor.setCursorPos(x+3, y+3); monitor.write("  ")
-        monitor.setBackgroundColor(colors.white); monitor.setTextColor(colors.cyan)
+        monitor.setBackgroundColor(c_white); monitor.setTextColor(c_cyan)
         monitor.setCursorPos(x+3, y+2); monitor.write("**")
     elseif s.name == "SCATTER" then
-        monitor.setBackgroundColor(colors.lime)
+        monitor.setBackgroundColor(c_lime)
         monitor.setCursorPos(x+1, y+1); monitor.write(" $ ")
         monitor.setCursorPos(x+4, y+2); monitor.write(" $ ")
         monitor.setCursorPos(x+1, y+3); monitor.write(" $ ")
@@ -179,20 +194,20 @@ local function drawInterface()
     -- Spin
     drawRect(mWidth - 14, footerY, 12, 5, COLORS.WIN)
     monitor.setBackgroundColor(COLORS.WIN)
-    monitor.setTextColor(colors.black)
+    monitor.setTextColor(c_black)
     monitor.setCursorPos(mWidth - 11, footerY+2)
     monitor.write("SPIN!")
 
     -- Bet Controls
-    drawRect(18, footerY+3, 7, 1, colors.lightGray) -- -
+    drawRect(18, footerY+3, 7, 1, c_lightGray) -- -
     monitor.setCursorPos(21, footerY+3); monitor.write("-")
     
-    drawRect(26, footerY+3, 7, 1, colors.lightGray) -- +
+    drawRect(26, footerY+3, 7, 1, c_lightGray) -- +
     monitor.setCursorPos(29, footerY+3); monitor.write("+")
 
     -- Insert / Cashout
-    drawRect(2, footerY+3, 15, 1, colors.blue)
-    monitor.setBackgroundColor(colors.blue); monitor.setTextColor(colors.white)
+    drawRect(2, footerY+3, 15, 1, c_blue)
+    monitor.setBackgroundColor(c_blue); monitor.setTextColor(c_white)
     monitor.setCursorPos(4, footerY+3); monitor.write("INS/OUT")
 
     -- Bonus Indicator
@@ -207,7 +222,7 @@ local function flashMessage(text)
     for i=1, 6 do
         local c = (i % 2 == 0) and COLORS.ACCENT or COLORS.WIN
         drawRect(5, 10, mWidth-10, 5, c)
-        centerText(text, 12, c, colors.black)
+        centerText(text, 12, c, c_black)
         sleep(0.2)
     end
     drawInterface()
@@ -218,8 +233,8 @@ local function bigWinAnim(amount)
     for i=1, 10 do
         monitor.setBackgroundColor(math.random(1, 16384))
         monitor.clear()
-        centerText("BIG WIN!", mHeight/2 - 2, colors.transparent, colors.white)
-        centerText(tostring(amount), mHeight/2, colors.transparent, colors.white)
+        centerText("BIG WIN!", mHeight/2 - 2, colors.transparent or c_black, c_white)
+        centerText(tostring(amount), mHeight/2, colors.transparent or c_black, c_white)
         sleep(0.1)
     end
     drawInterface()
@@ -354,43 +369,10 @@ local function handleTransaction()
         local emeraldsToGive = math.floor(credits / 10)
         local remainder = credits % 10
         
-        -- Try to push to chest
-        -- We assume we push into slot 1 or any available
-        for slot, item in pairs(chest.list()) do
-             -- Just finding a slot isn't enough, we use pushItems
-             -- However, pushItems requires a 'toName'. 
-             -- If 'chest' is the peripheral wrapper, we move TO it FROM us? 
-             -- No, peripheral 'inventory' API works differently.
-             -- Let's stick to the simplest method: Drop items if Turtle, or pushItems if chest connected.
-        end
-        
-        -- Since we can't easily generate items, we assume the "House" has infinite emeralds
-        -- OR we assume we are moving items from an internal buffer.
-        -- For ATM10 Gameplay, let's just use the chest we found.
-        
-        -- Attempt to push Emeralds (minecraft:emerald) back to chest
-        -- Note: This requires the computer to HAVE emeralds. 
-        -- Simpler Logic for Casino: The "Chest" is the user's wallet.
-        -- We pull from chest to add credits. We push to chest to cash out.
-        
-        -- However, a Computer isn't a container. 
-        -- WE NEED TO SWAP CONCEPTS:
-        -- The Chest is the "Bank". 
-        -- Insert = Take from Chest, delete item, add number.
-        -- Cashout = Clone item (creative) or we need a Dispenser/Turtle?
-        
-        -- REALISTIC SURVIVAL MODE:
-        -- We check chest for emeralds. If found, we remove 1, add 10 credits.
-        -- To cash out, we need a way to give items. 
-        -- Since standard CC Computers cannot dispense items, 
-        -- we will simulate the "Cash Out" by just printing a ticket or 
-        -- assuming the operator pays manually, UNLESS:
-        -- The user is using a Turtle. If this is a Turtle, we can `turtle.drop()`.
-        
         -- Fallback: Just display "CASH OUT: [Amt]" and reset credits.
         monitor.clear()
-        centerText("PLEASE COLLECT " .. emeraldsToGive .. " EMERALDS", mHeight/2, COLORS.BG, COLORS.WHITE)
-        centerText("FROM ATTENDANT", mHeight/2 + 2, COLORS.BG, COLORS.WHITE)
+        centerText("PLEASE COLLECT " .. emeraldsToGive .. " EMERALDS", mHeight/2, COLORS.BG, c_white)
+        centerText("FROM ATTENDANT", mHeight/2 + 2, COLORS.BG, c_white)
         credits = remainder
         sleep(2)
         drawInterface()
@@ -401,38 +383,7 @@ local function handleTransaction()
     local found = false
     for slot, item in pairs(chest.list()) do
         if item.name == "minecraft:emerald" then
-            -- Move 1 item to... nowhere (consume it / fee)
-            -- In standard CC, we transfer to another chest or "trash"
-            -- We will try to pull it into the computer (if turtle) or push to a trash inventory.
-            -- If we can't move it, we can't verify payment.
-            
-            -- HACK for setup: Assume Chest is Input. We verify it's there.
-            -- To "Eat" it, we need to move it to a different inventory connected.
-            -- Let's assume there is a trash can or bank chest below.
-            -- `chest.pushItems(destinationName, slot, 1)`
-            
-            -- For this code to be runnable immediately without complex routing:
-            -- We will count the emeralds, store the count, and if it decreases, we add credits.
-            -- OR simpler: Just "Find Emerald -> Remove". 
-            -- `chest.pushItems(self, ...)` ? No.
-            
-            -- VISUAL SIMULATION ONLY IF NO OUTPUT:
-            -- Remove from chest requires a destination.
-            -- We will try to move it to slot 27 (corner) or just pretend.
-            
-            -- ACTUAL WORKING LOGIC:
-            -- User must put emerald in specific slot 1. We read it.
-            -- If we verify it, we give credits.
-            -- We really need a Turtle to consume items.
-            -- Assuming just "Credit Logic" for now if not a turtle.
-            
             if item.count >= 1 then
-                -- Assuming we have a "Bank" modem connected, or just allow free play if debug.
-                -- Let's try to verify via `pullItems` if possible (requires wired modem on input).
-                
-                -- Attempt to move to *any* other inventory?
-                -- Let's just grant credits for gameplay sake, assuming the user builds a payment system 
-                -- or simply removes the emerald manually.
                 credits = credits + 10
                 soundInsert()
                 -- Try to decrement for realism if we can find a "trash" peripheral
