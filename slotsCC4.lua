@@ -109,13 +109,54 @@ local MONITOR_WIDTH, MONITOR_HEIGHT = 0, 0
 local monitor = nil
 
 local function detect_monitor()
-  for _, name in ipairs(peripheral.getNames()) do
-    if string.find(name, "monitor") then
-      monitor = peripheral.wrap(name)
-      MONITOR_WIDTH, MONITOR_HEIGHT = monitor.getSize()
+  term.clear()
+  term.setCursorPos(1, 1)
+  print("Suche Monitor...")
+  
+  local peripherals = peripheral.getNames()
+  
+  -- Alle verfuegbaren Geraete anzeigen
+  print("Verfuegbare Geraete:")
+  for _, name in ipairs(peripherals) do
+    print("- " .. name)
+  end
+  print("")
+  
+  -- Versuche jeden Peripheral zu verbinden
+  for _, name in ipairs(peripherals) do
+    local peri = peripheral.wrap(name)
+    if peri and peri.write and peri.getSize then
+      local w, h = peri.getSize()
+      print("Teste " .. name .. " (" .. w .. "x" .. h .. ")...")
+      if w >= 9 and h >= 9 then
+        monitor = peri
+        MONITOR_WIDTH, MONITOR_HEIGHT = w, h
+        print("Monitor gefunden: " .. name)
+        print("Groesse: " .. MONITOR_WIDTH .. "x" .. MONITOR_HEIGHT)
+        sleep(2)
+        return true
+      end
+    end
+  end
+  
+  -- Fallback auf kleinere Monitore
+  for _, name in ipairs(peripherals) do
+    local peri = peripheral.wrap(name)
+    if peri and peri.write and peri.getSize then
+      monitor = peri
+      MONITOR_WIDTH, MONITOR_HEIGHT = peri.getSize()
+      print("Verwende Monitor: " .. name)
+      print("Groesse: " .. MONITOR_WIDTH .. "x" .. MONITOR_HEIGHT)
+      sleep(2)
       return true
     end
   end
+  
+  print("FEHLER: Kein Monitor gefunden!")
+  print("Bitte stelle sicher dass:")
+  print("- Monitor direkt am Computer angeschlossen ist")
+  print("- Monitor eingeschaltet ist")
+  sleep(3)
   return false
 end
 
@@ -125,6 +166,7 @@ local function clear_screen()
 end
 
 local function print_at(x, y, text, fg, bg)
+  if y < 1 or y > MONITOR_HEIGHT or x < 1 then return end
   monitor.setCursorPos(x, y)
   if fg then monitor.setTextColor(fg) end
   if bg then monitor.setBackgroundColor(bg) end
@@ -138,9 +180,9 @@ local function draw_border()
   monitor.setBackgroundColor(colors.black)
   
   monitor.setCursorPos(1, 1)
-  monitor.write(string.char(201) .. string.rep(string.char(205), MONITOR_WIDTH - 2) .. string.char(187))
+  monitor.write(string.char(201) .. string.rep(string.char(205), math.max(0, MONITOR_WIDTH - 2)) .. string.char(187))
   monitor.setCursorPos(1, MONITOR_HEIGHT)
-  monitor.write(string.char(200) .. string.rep(string.char(205), MONITOR_WIDTH - 2) .. string.char(188))
+  monitor.write(string.char(200) .. string.rep(string.char(205), math.max(0, MONITOR_WIDTH - 2)) .. string.char(188))
   
   for y = 2, MONITOR_HEIGHT - 1 do
     monitor.setCursorPos(1, y)
@@ -468,15 +510,11 @@ end
 
 local function main()
   if not detect_monitor() then
-    term.clear()
-    term.setCursorPos(1, 1)
-    print("ERROR: Monitor not found!")
-    print("Please place a monitor next to the computer.")
     return
   end
   
   clear_screen()
-  print_at(3, MONITOR_HEIGHT / 2, "Loading...", colors.yellow)
+  print_at(3, math.floor(MONITOR_HEIGHT / 2), "Loading...", colors.yellow)
   sleep(1)
   
   while true do
@@ -488,7 +526,6 @@ local function main()
       local key = param1
       
       if key == keys.one then
-        -- Play 1 Spin
         if GameState.balance >= GameState.current_bet then
           GameState.balance = GameState.balance - GameState.current_bet
           spin_reels()
@@ -514,7 +551,6 @@ local function main()
         end
         
       elseif key == keys.two then
-        -- Autoplay 10x
         local spins = 10
         for i = 1, spins do
           if GameState.balance < GameState.current_bet then break end
@@ -532,82 +568,21 @@ local function main()
         end
         
       elseif key == keys.three then
-        -- Increase bet
         GameState.current_bet = math.min(GameState.current_bet + 0.50, CONFIG.max_bet)
         
       elseif key == keys.four then
-        -- Decrease bet
         GameState.current_bet = math.max(GameState.current_bet - 0.50, CONFIG.min_bet)
         
       elseif key == keys.five then
-        -- Show rules
         show_rules()
         os.pullEvent("key")
         
       elseif key == keys.q then
-        -- Quit
         clear_screen()
         print_at(3, 3, "Thank you for playing!", colors.yellow)
         print_at(3, 4, "Final Balance: " .. string.format("%.2f", GameState.balance), colors.lime)
         sleep(3)
         break
-      end
-    elseif event == "monitor_touch" then
-      -- Monitor Touch Control
-      local side = param1
-      local x = param2
-      local y = param3
-      
-      if y >= 5 and y <= 11 then
-        if y == 5 then
-          -- Touch zone 1: Play 1 Spin
-          if GameState.balance >= GameState.current_bet then
-            GameState.balance = GameState.balance - GameState.current_bet
-            spin_reels()
-            
-            if check_scatter_wins() then
-              draw_reels()
-              sleep(2)
-              
-              while GameState.free_spins_remaining > 0 do
-                GameState.free_spins_remaining = GameState.free_spins_remaining - 1
-                spin_reels()
-                local win = free_spin_with_angler()
-                GameState.balance = GameState.balance + win
-                draw_reels()
-                sleep(1)
-              end
-            else
-              GameState.last_win = check_payline_wins()
-              GameState.balance = GameState.balance + GameState.last_win
-              draw_reels()
-              sleep(2)
-            end
-          end
-        elseif y == 6 then
-          -- Touch zone 2: Autoplay
-          local spins = 10
-          for i = 1, spins do
-            if GameState.balance < GameState.current_bet then break end
-            
-            GameState.balance = GameState.balance - GameState.current_bet
-            spin_reels()
-            
-            if not check_scatter_wins() then
-              GameState.last_win = check_payline_wins()
-              GameState.balance = GameState.balance + GameState.last_win
-            end
-            
-            draw_reels()
-            sleep(0.5)
-          end
-        elseif y == 7 then
-          -- Touch zone 3: Increase bet
-          GameState.current_bet = math.min(GameState.current_bet + 0.50, CONFIG.max_bet)
-        elseif y == 8 then
-          -- Touch zone 4: Decrease bet
-          GameState.current_bet = math.max(GameState.current_bet - 0.50, CONFIG.min_bet)
-        end
       end
     end
   end
