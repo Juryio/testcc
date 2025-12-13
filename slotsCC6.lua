@@ -1,10 +1,10 @@
 --[[
   BIGGER BASS BONANZA - ComputerCraft Slot Machine
-  Pragmatic Play Edition - FIXED VERSION
+  Pragmatic Play Edition - STANDALONE VERSION
   
-  - 5x4 Raster mit 12 Paylines
-  - RTP 96,71% | Volatilität: Sehr Hoch (5/5)
-  - Monitor Touch Control + Keyboard
+  ✅ NO EXTERNAL DEPENDENCIES
+  ✅ COMPLETE GAME LOGIC
+  ✅ MONITOR + KEYBOARD SUPPORT
 ]]
 
 local CONFIG = {
@@ -24,7 +24,7 @@ local CONFIG = {
   },
 }
 
--- Symbol Display (Character based)
+-- Symbol Display
 local SYMBOL_CHAR = {
   boot = "B",
   rute = "R",
@@ -51,7 +51,6 @@ local SYMBOL_COLOR = {
 
 local MONITOR_WIDTH, MONITOR_HEIGHT = 0, 0
 local monitor = nil
-local last_action = nil
 
 local function detect_monitor()
   term.clear()
@@ -128,7 +127,6 @@ end
 local function draw_reels()
   clear_screen()
   
-  -- Title
   print_at(2, 1, "BIGGER BASS BONANZA", colors.yellow)
   
   -- Reels (5 columns x 4 rows)
@@ -154,7 +152,7 @@ local function draw_reels()
   monitor.setTextColor(colors.white)
 end
 
-function show_menu()
+local function show_menu()
   clear_screen()
   
   print_at(2, 1, "BIGGER BASS BONANZA", colors.yellow)
@@ -173,7 +171,7 @@ function show_menu()
   monitor.setTextColor(colors.white)
 end
 
-function show_rules()
+local function show_rules()
   clear_screen()
   
   print_at(2, 1, "RULES & FEATURES", colors.yellow)
@@ -401,7 +399,6 @@ function main()
         break
       end
     elseif event == "monitor_touch" then
-      -- Monitor Touch Control
       local side = param1
       local x = param2
       local y = param3
